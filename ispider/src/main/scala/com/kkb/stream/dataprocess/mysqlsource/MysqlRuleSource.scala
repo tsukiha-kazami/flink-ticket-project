@@ -9,8 +9,9 @@ import com.kkb.stream.common.util.jedis.JedisConnectionUtil
 import com.kkb.stream.dataprocess.constants.{BehaviorTypeEnum, FlightTypeEnum}
 import org.apache.flink.configuration.Configuration
 import org.apache.flink.streaming.api.functions.source.{RichSourceFunction, SourceFunction}
-import redis.clients.jedis.JedisCluster
+import redis.clients.jedis.{Jedis, JedisCluster}
 import org.apache.flink.api.scala._
+
 import scala.collection.mutable.ArrayBuffer
 
 
@@ -93,6 +94,7 @@ class MysqlRuleSource extends RichSourceFunction[util.HashMap[String,Any]]{
         //todo: 2.4 封装高频ip规则的数据
         map=queryIpBlackRuleToMap(rs4,map)
 
+    println(map)
   }
 
 
@@ -104,8 +106,9 @@ class MysqlRuleSource extends RichSourceFunction[util.HashMap[String,Any]]{
     try {
      while(isRunning && !Thread.interrupted()) {
 
-        //获取redis连接
-        val jedisCluster: JedisCluster = JedisConnectionUtil.getJedisCluster
+       val jedisCluster: Jedis = JedisConnectionUtil.getSimpleJedis
+       //获取redis连接
+//        val jedisCluster: JedisCluster = jedis
         //从redis中查询是否更新规则的标识
           //过滤规则标识
             val filterIsUpdate = jedisCluster.get("filterChangeFlag").toBoolean
