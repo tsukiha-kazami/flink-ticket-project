@@ -16,212 +16,212 @@ import scala.collection.mutable.ArrayBuffer
 
 
 /**
-  * todo: 自定义MysqlSource，读取规则数据
-  */
+ * todo: 自定义MysqlSource，读取规则数据
+ */
 class MysqlRuleSource extends RichSourceFunction[util.HashMap[String,Any]]{
   var connection:Connection=_
   //定义过滤规则查询的对象
-    var ps1:PreparedStatement=_
-    var rs1:ResultSet=_
+  var ps1:PreparedStatement=_
+  var rs1:ResultSet=_
 
   //定义分类规则查询的信息
-    var ps2:PreparedStatement=_
-    var rs2:ResultSet=_
+  var ps2:PreparedStatement=_
+  var rs2:ResultSet=_
 
 
   //定义解析规则的信息
-    var ps3:PreparedStatement=_
-    var rs3:ResultSet=_
+  var ps3:PreparedStatement=_
+  var rs3:ResultSet=_
 
 
   //定义高频ip查询的信息
-    var ps4:PreparedStatement=_
-    var rs4:ResultSet=_
+  var ps4:PreparedStatement=_
+  var rs4:ResultSet=_
 
-    var map: util.HashMap[String, Any]=_
+  var map: util.HashMap[String, Any]=_
 
-    //标识
-    var isRunning = true
+  //标识
+  var isRunning = true
 
 
   /**
-    * 初始化方法
-    *
-    * @param parameters
-    */
+   * 初始化方法
+   *
+   * @param parameters
+   */
   override def open(parameters: Configuration): Unit = {
     //获取数据库链接
     connection = C3p0Util.getConnection
 
     //todo:1、定义查询sql
-      //todo: 1.1 过滤规则的sql和结果
-          val filterRuleSql="select id,value from nh_filter_rule"
-          ps1=connection.prepareStatement(filterRuleSql)
-          rs1 = ps1.executeQuery()
+    //todo: 1.1 过滤规则的sql和结果
+    val filterRuleSql="select id,value from nh_filter_rule"
+    ps1=connection.prepareStatement(filterRuleSql)
+    rs1 = ps1.executeQuery()
 
-      //todo: 1.2 定义查询分类规则的sql和结果
-          val classifyRuleSql="select id,expression,flight_type,operation_type from nh_classify_rule"
-          ps2=connection.prepareStatement(classifyRuleSql)
-          rs2 = ps2.executeQuery()
+    //todo: 1.2 定义查询分类规则的sql和结果
+    val classifyRuleSql="select id,expression,flight_type,operation_type from nh_classify_rule"
+    ps2=connection.prepareStatement(classifyRuleSql)
+    rs2 = ps2.executeQuery()
 
-     //todo: 1.3 定义查询解析规则的sql和结果
-          val analyzeruleRuleSql="select * from analyzerule"
-          ps3=connection.prepareStatement(analyzeruleRuleSql)
-          rs3 = ps3.executeQuery()
+    //todo: 1.3 定义查询解析规则的sql和结果
+    val analyzeruleRuleSql="select * from analyzerule"
+    ps3=connection.prepareStatement(analyzeruleRuleSql)
+    rs3 = ps3.executeQuery()
 
-     //todo: 1.4 定义查询高频ip规则的sql和结果
-          val ipBlackRuleSql="select ip_name from nh_ip_blacklist"
-          ps4=connection.prepareStatement(ipBlackRuleSql)
-          rs4 = ps4.executeQuery()
+    //todo: 1.4 定义查询高频ip规则的sql和结果
+    val ipBlackRuleSql="select ip_name from nh_ip_blacklist"
+    ps4=connection.prepareStatement(ipBlackRuleSql)
+    rs4 = ps4.executeQuery()
 
 
 
     //todo:2、定义map封装查询结果
-      map= new util.HashMap[String, Any]()
+    map= new util.HashMap[String, Any]()
 
-        //todo:2.1 封装过滤规则的数据
-          map=queryFilterRuleToMap(rs1,map)
-
-
-        //todo: 2.2 封装分类规则的数据
-         map=queryClassifyRuleToMap(rs2,map)
+    //todo:2.1 封装过滤规则的数据
+    map=queryFilterRuleToMap(rs1,map)
 
 
-        //todo: 2.3 封装解析规则的数据
-         map=queryAnalyzeruleRuleToMap(rs3,map)
+    //todo: 2.2 封装分类规则的数据
+    map=queryClassifyRuleToMap(rs2,map)
 
 
-        //todo: 2.4 封装高频ip规则的数据
-        map=queryIpBlackRuleToMap(rs4,map)
+    //todo: 2.3 封装解析规则的数据
+    map=queryAnalyzeruleRuleToMap(rs3,map)
 
-    println(map)
+
+    //todo: 2.4 封装高频ip规则的数据
+    map=queryIpBlackRuleToMap(rs4,map)
+
   }
 
 
   /**
-    * 读取mysql表数据
-    * @param ctx
-    */
+   * 读取mysql表数据
+   * @param ctx
+   */
   override def run(ctx: SourceFunction.SourceContext[util.HashMap[String, Any]]): Unit = {
-    try {
-     while(isRunning && !Thread.interrupted()) {
+//    try {
+      while(isRunning && !Thread.interrupted()) {
 
-       val jedisCluster: Jedis = JedisConnectionUtil.getSimpleJedis
-       //获取redis连接
-//        val jedisCluster: JedisCluster = jedis
+        //获取redis连接
+//        val jedisCluster: JedisCluster = JedisConnectionUtil.getJedisCluster
+        val jedisCluster: Jedis = JedisConnectionUtil.getSimpleJedis
         //从redis中查询是否更新规则的标识
-          //过滤规则标识
-            val filterIsUpdate = jedisCluster.get("filterChangeFlag").toBoolean
+        //过滤规则标识
+        val filterIsUpdate = jedisCluster.get("filterChangeFlag").toBoolean
 
-          //分类规则标识
-             val classifyIsUpdate = jedisCluster.get("classifyRuleFlag").toBoolean
+        //分类规则标识
+        val classifyIsUpdate = jedisCluster.get("classifyRuleFlag").toBoolean
 
-         //解析规则标识
-              val analyzeIsUpdate = jedisCluster.get("analyzeRuleFlag").toBoolean
+        //解析规则标识
+        val analyzeIsUpdate = jedisCluster.get("analyzeRuleFlag").toBoolean
 
-         //高频ip标识
-              val ipBlackIsUpdate = jedisCluster.get("ipBlackRuleFlag").toBoolean
+        //高频ip标识
+        val ipBlackIsUpdate = jedisCluster.get("ipBlackRuleFlag").toBoolean
 
         if (filterIsUpdate) {
 
-              println("---------[filterChangeFlag]规则发生变化----------")
+          println("---------[filterChangeFlag]规则发生变化----------")
 
-            //移除map中的key
-              map.remove("filterRule")
+          //移除map中的key
+          map.remove("filterRule")
 
-            //查询mysql中更新的规则数据
-              rs1 = ps1.executeQuery()
+          //查询mysql中更新的规则数据
+          rs1 = ps1.executeQuery()
 
-            //封装更新的规则到map中
-              map=queryFilterRuleToMap(rs1,map)
+          //封装更新的规则到map中
+          map=queryFilterRuleToMap(rs1,map)
 
-            //修改redis中的更新规则标识
-              jedisCluster.set("filterChangeFlag", "false")
+          //修改redis中的更新规则标识
+          jedisCluster.set("filterChangeFlag", "false")
 
         }
         if(classifyIsUpdate){
 
-            println("---------[classifyRuleFlag]规则发生变化----------")
+          println("---------[classifyRuleFlag]规则发生变化----------")
 
-           //移除广播变量中的map
-            map.remove("nationQuery")
-            map.remove("internationQuery")
-            map.remove("nationBook")
-            map.remove("internationBook")
+          //移除广播变量中的map
+          map.remove("nationQuery")
+          map.remove("internationQuery")
+          map.remove("nationBook")
+          map.remove("internationBook")
 
           //查询mysql中更新的规则数据
-            rs2 = ps2.executeQuery()
+          rs2 = ps2.executeQuery()
 
           //封装新的分类数据到map中
-            map = queryClassifyRuleToMap(rs2,map)
+          map = queryClassifyRuleToMap(rs2,map)
 
           //修改redis中的更新规则标识
-            jedisCluster.set("classifyRuleFlag", "false")
+          jedisCluster.set("classifyRuleFlag", "false")
 
         }
         if(analyzeIsUpdate){
 
-            println("---------[analyzeRuleFlag]规则发生变化----------")
+          println("---------[analyzeRuleFlag]规则发生变化----------")
 
-            //移除广播变量中的map
-              map.remove("query")
-              map.remove("book")
+          //移除广播变量中的map
+          map.remove("query")
+          map.remove("book")
 
-            //查询mysql中更新的规则数据
-              rs3 = ps3.executeQuery()
+          //查询mysql中更新的规则数据
+          rs3 = ps3.executeQuery()
 
-            //封装新的分类数据到map中
-              map = queryAnalyzeruleRuleToMap(rs3,map)
+          //封装新的分类数据到map中
+          map = queryAnalyzeruleRuleToMap(rs3,map)
 
-            //修改redis中的更新规则标识
-              jedisCluster.set("analyzeRuleFlag", "false")
+          //修改redis中的更新规则标识
+          jedisCluster.set("analyzeRuleFlag", "false")
 
         }
         if(ipBlackIsUpdate){
 
-              println("---------[ipBlackRuleFlag]规则发生变化----------")
+          println("---------[ipBlackRuleFlag]规则发生变化----------")
 
-              //移除广播变量中的map
-              map.remove("ipBlack")
+          //移除广播变量中的map
+          map.remove("ipBlack")
 
-              //查询mysql中更新的规则数据
-              rs4 = ps4.executeQuery()
+          //查询mysql中更新的规则数据
+          rs4 = ps4.executeQuery()
 
-              //封装新的分类数据到map中
-              map = queryIpBlackRuleToMap(rs4,map)
+          //封装新的分类数据到map中
+          map = queryIpBlackRuleToMap(rs4,map)
 
-              //修改redis中的更新规则标识
-              jedisCluster.set("ipBlackRuleFlag", "false")
+          //修改redis中的更新规则标识
+          jedisCluster.set("ipBlackRuleFlag", "false")
 
 
         }
 
-          //输出
-          ctx.collect(map)
+        //输出
+        ctx.collect(map)
 
-         //每隔5s检测redis中的key
+        //每隔5s检测redis中的key
         Thread.sleep(5000)
       }
-    }catch {
-      case e:Exception =>{
-         Thread.interrupted()
-      }
-    }
+//    }
+//    catch {
+//      case e:Exception =>{
+//        Thread.interrupted()
+//      }
+//    }
   }
 
   /**
-    * 取消发送数据
-    */
+   * 取消发送数据
+   */
   override def cancel(): Unit = {
     isRunning=false
   }
 
 
   /**
-    * 查询过滤规则数据，封装成map
-    * @param rs
-    * @return
-    */
+   * 查询过滤规则数据，封装成map
+   * @param rs
+   * @return
+   */
   def queryFilterRuleToMap(rs: ResultSet,map:util.HashMap[String, Any]):util.HashMap[String, Any] ={
 
     val filterList = ArrayBuffer[String]()
@@ -238,10 +238,10 @@ class MysqlRuleSource extends RichSourceFunction[util.HashMap[String,Any]]{
   }
 
   /**
-    * 查询分类规则数据，封装成map
-    * @param rs
-    * @return
-    */
+   * 查询分类规则数据，封装成map
+   * @param rs
+   * @return
+   */
   def queryClassifyRuleToMap(rs: ResultSet, map: util.HashMap[String, Any]): util.HashMap[String, Any] ={
     //国内查询
     val nationQueryList = ArrayBuffer[String]()
@@ -297,17 +297,17 @@ class MysqlRuleSource extends RichSourceFunction[util.HashMap[String,Any]]{
 
 
   /**
-    * 查询解析规则数据，封装成map
-    * @param rs
-    * @param map
-    * @return
-    */
+   * 查询解析规则数据，封装成map
+   * @param rs
+   * @param map
+   * @return
+   */
   def queryAnalyzeruleRuleToMap(rs: ResultSet, map: util.HashMap[String, Any]): util.HashMap[String, Any] ={
     //存储解析查询规则的数据
-      val queryRuleList =  ArrayBuffer[AnalyzeRule]()
+    val queryRuleList =  ArrayBuffer[AnalyzeRule]()
 
     //存储解析预定规则的数据
-      val bookRuleList =  ArrayBuffer[AnalyzeRule]()
+    val bookRuleList =  ArrayBuffer[AnalyzeRule]()
 
     //遍历
     while(rs.next()){
@@ -369,11 +369,11 @@ class MysqlRuleSource extends RichSourceFunction[util.HashMap[String,Any]]{
 
 
   /**
-    * 查询高频ip数据，封装成map
-    * @param rs
-    * @param map
-    * @return
-    */
+   * 查询高频ip数据，封装成map
+   * @param rs
+   * @param map
+   * @return
+   */
   def queryIpBlackRuleToMap(rs: ResultSet, map: util.HashMap[String, Any]): util.HashMap[String, Any] ={
     //存储高频ip数据
     val ipBlackList =  ArrayBuffer[String]()
